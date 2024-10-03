@@ -9,9 +9,10 @@ def create_coordinate(address):
     if not address:
         return None
     try:
-        location = geolocation.geocode(address)
-        if location:
-            coordinate = Coordinate.objects.create(latitude=location.latitude, longitude=location.longitude)
+        res = gmaps.geocode(address)
+        if res:
+            location = res[0]['geometry']['location']
+            coordinate = Coordinate.objects.create(latitude=location['lat'], longitude=location['lng'])
             return coordinate
         else:
             return None
@@ -20,7 +21,7 @@ def create_coordinate(address):
         return None
 
 def calculate_duration(point1, point2):
-    res = gmaps.distance_matrix(origins=[point1], destinations=[point2], mode='driving')
+    res = gmaps.distance_matrix(origins=[point1], destinations=[point2], mode='transit')
     if res['status'] != 'OK':
         raise ValueError("Error fetching data from Google Maps API")
     duration = res['rows'][0]['elements'][0]['duration']['value']

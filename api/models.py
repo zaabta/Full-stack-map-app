@@ -1,4 +1,5 @@
 from django.db import models
+from decimal import Decimal
 
 # Create your models here.
 
@@ -16,7 +17,7 @@ class Coordinate(models.Model):
 
 class Job(models.Model):
     departure_point=models.TextField()
-    total_price=models.DecimalField(max_digits=10, decimal_places=2)
+    total_price=models.DecimalField(max_digits=10, decimal_places=2, default=Decimal(0.0))
     pending_order=models.IntegerField(default=0)
     coordinate=models.OneToOneField(Coordinate, on_delete=models.CASCADE, blank=True, null=True)
     
@@ -26,7 +27,7 @@ class Job(models.Model):
 class Order(models.Model):
     job=models.ForeignKey(Job, related_name='orders', on_delete=models.CASCADE)
     name=models.CharField(max_length=20)
-    phone=models.IntegerField()
+    phone=models.CharField(max_length=10)
     status=models.CharField(
         max_length=2,
         choices=Status.choices,

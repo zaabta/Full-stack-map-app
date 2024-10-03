@@ -51,18 +51,18 @@ def create_order(req):
         return Response({'message': 'Job not found'}, status=status.HTTP_400_BAD_REQUEST)
     try:
         duration = calculate_duration(
-            (coordinate.latitude, coordinate.longitude),
-            (job.coordinate.latitude, job.coordinate.longitude)
+            (job.coordinate.latitude, job.coordinate.longitude),
+            (coordinate.latitude, coordinate.longitude)
             )
     except ValueError as e:
         return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
-    data = {**req.data, 'coordinate': coordinate.id, 'duration': duration}
+    data = {**req.data, 'coordinate': coordinate.id, 'duration': duration, 'job': job.id}
     serializer = OrderSerializers(data=data)
     
     if serializer.is_valid():
         serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response({'data': serializer.data}, status=status.HTTP_201_CREATED)
     
     return Response({'message': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -79,17 +79,17 @@ def update_order(req, id):
     serializer = OrderSerializers(order, data=req.data, partial=True)  # Use partial=True to allow partial updates
     if serializer.is_valid():
         serializer.save()
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response({ 'data' : OrderSerializers(order).data}, status=status.HTTP_200_OK)
     
     return Response({'message': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])
 def create_job(req):
-    coordinate = create_coordinate(req.data.get('address'))
+    coordinate = create_coordinate(req.data.get('departure_point'))
     if not coordinate:
         return Response({'message': 'Invalid address. Could not retrieve coordinates.'}, status=status.HTTP_400_BAD_REQUEST)
-    serializer = JobSerializes({**req.data, coordinate: coordinate.id })
+    serializer = JobSerializes(data={**req.data, 'coordinate': coordinate.id })
     if serializer.is_valid():
         serializer.save()
         return Response({'data': serializer.data}, status=status.HTTP_201_CREATED)
