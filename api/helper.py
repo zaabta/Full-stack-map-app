@@ -1,5 +1,5 @@
+from django.conf import settings
 import googlemaps
-from geopy.distance import geodesic
 from .models import Coordinate
 import re
 
