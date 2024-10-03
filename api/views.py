@@ -1,12 +1,9 @@
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import api_view
-from geopy.geocoders import Nominatim
 from .models import Order, Job
 from .serializer import OrderSerializers, JobSerializes
-from .helper import parse_duration, create_coordinate, calculate_duration
-
-geolocator = Nominatim(user_agent='AIzaSyByutQmxT96kVVIapfHsNsruYdPfN-VsCo')
+from .helper import parse_duration, create_coordinate, calculate_duration, sort_orders
 
 @api_view(['GET'])
 def list_order(req):
@@ -43,22 +40,6 @@ def list_order(req):
     serializer = OrderSerializers(queryset, many=True)
     return Response({'data': serializer.data}, status=status.HTTP_200_OK)
 
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from rest_framework import status
-from .models import Job, Order
-from .serializer import OrderSerializers
-from geopy.distance import geodesic
-
-def calculate_duration(point1, point2):
-    # Calculate the geodesic distance (in km) between two points
-    distance_km = geodesic(point1, point2).kilometers
-    # Assuming a fixed average speed for now (this is just an example without speed_kmh)
-    travel_time_hours = distance_km / 60  # Example: assuming a 60 km/h speed
-    hours = int(travel_time_hours)
-    minutes = int((travel_time_hours - hours) * 60)
-    return f"{hours}h {minutes}mins"
-
 @api_view(['POST'])
 def create_order(req):
     coordinate = create_coordinate(req.data.get('address'))
@@ -68,10 +49,14 @@ def create_order(req):
         job = Job.objects.get(id=req.data.get('job_id'))
     except Job.DoesNotExist:
         return Response({'message': 'Job not found'}, status=status.HTTP_400_BAD_REQUEST)
-    duration = calculate_duration(
-        (coordinate.latitude, coordinate.longitude),
-        (job.coordinate.latitude, job.coordinate.longitude)
-    )
+    try:
+        duration = calculate_duration(
+            (coordinate.latitude, coordinate.longitude),
+            (job.coordinate.latitude, job.coordinate.longitude)
+            )
+    except ValueError as e:
+        return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    
     data = {**req.data, 'coordinate': coordinate.id, 'duration': duration}
     serializer = OrderSerializers(data=data)
     
@@ -99,7 +84,7 @@ def update_order(req, id):
     return Response({'message': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view
+@api_view(['POST'])
 def create_job(req):
     coordinate = create_coordinate(req.data.get('address'))
     if not coordinate:
@@ -109,3 +94,8 @@ def create_job(req):
         serializer.save()
         return Response({'data': serializer.data}, status=status.HTTP_201_CREATED)
     return Response({'message': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET'])
+def sort_orders():
+    queryset = Order.objects.all()
+    return Response({ 'data': sort_orders(OrderSerializers(queryset, many=True).data)})

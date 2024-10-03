@@ -1,19 +1,9 @@
-from geopy.geocoders import Nominatim
+import googlemaps
 from geopy.distance import geodesic
 from .models import Coordinate
 import re
 
-geolocation = Nominatim(user_agent='your_app_name')
-
-def parse_duration(duration_str):
-    total_minutes = 0
-    hours = re.search(r'(\d+)h', duration_str)
-    minutes = re.search(r'(\d+)m', duration_str)
-    if hours:
-        total_minutes += int(hours.group(1)) * 60
-    if minutes:
-        total_minutes += int(minutes.group(1))
-    return total_minutes
+gmaps = googlemaps.Client(key=settings.GOOGLE_MAPS_API_KEY)
 
 def create_coordinate(address):
     if not address:
@@ -29,17 +19,35 @@ def create_coordinate(address):
         print(f"Error geocoding address: {error}")
         return None
 
+def calculate_duration(point1, point2):
+    res = gmaps.distance_matrix(origins=[point1], destinations=[point2], mode='driving')
+    if res['status'] != 'OK':
+        raise ValueError("Error fetching data from Google Maps API")
+    duration = res['rows'][0]['elements'][0]['duration']['value']
+    hours, remainder = divmod(duration, 3600)
+    minutes, _ = divmod(remainder, 60)
+    return f'{hours}h {minutes}m'
+
 def calculate_distance(point1, point2):
-    distance_km = geodesic(point1, point2).kilometers
-    return distance_km
+    res = gmaps.distance_matrix(origins=[point1], destinations=[point2], mode='driving')
+    if res['status'] != 'OK':
+        raise ValueError("Error fetching data from Google Maps API")
+    distance_meters = re['rows'][0]['elements'][0]['distance']['value']
+    return round(distance_meters / 1000, 2)
 
-def calculate_duration(point1, point2, speed_kmh=60):
-    distance = calculate_distance(point1, point2)
-    travel_time_hours = distance / speed_kmh
-    
-    hours = int(travel_time_hours)
-    minutes = int((travel_time_hours - hours) * 60)
-    return f"{hours}h {minutes}mins"
+def parse_duration(duration_str):
+    total_minutes = 0
+    parts = duration_str.split()
+    for part in parts:
+        if 'h' in part:
+            hours = int(part.replace('h', '').strip())
+            total_minutes += hours * 60
+        elif 'm' in part:
+            minutes = int(part.replace('m', '').strip())
+            total_minutes += minutes
+            
+    return total_minutes
 
 
-    
+def sort_orders(orders):
+    return sorted(orders, key=lambda order: parse_duration(order.duration))
