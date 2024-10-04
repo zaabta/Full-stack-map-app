@@ -1,6 +1,6 @@
 from django.conf import settings
 import googlemaps
-from .models import Coordinate
+from .models import Coordinate, Job
 import re
 
 gmaps = googlemaps.Client(key=settings.GOOGLE_MAPS_API_KEY)
@@ -50,5 +50,11 @@ def parse_duration(duration_str):
     return total_minutes
 
 
-def sort_orders(orders):
-    return sorted(orders, key=lambda order: parse_duration(order.duration))
+def sort_orders_list(orders):
+    return sorted(orders, key=lambda order: parse_duration(order['duration']))
+
+def update_total_price(job_id):
+    job = Job.objects.get(id=job_id)
+    total_price = sum(order.price for order in Order.objects.filter(job=job))
+    job.total_price = total_price
+    job.save()

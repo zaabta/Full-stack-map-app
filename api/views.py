@@ -3,7 +3,8 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from .models import Order, Job
 from .serializer import OrderSerializers, JobSerializes
-from .helper import parse_duration, create_coordinate, calculate_duration, sort_orders
+from .helper import parse_duration, create_coordinate, calculate_duration, sort_orders_list
+from .signals import update_total_price_async
 
 @api_view(['GET'])
 def list_order(req):
@@ -61,6 +62,7 @@ def create_order(req):
     serializer = OrderSerializers(data=data)
     
     if serializer.is_valid():
+        update_total_price_async(serializer.job.id) 
         serializer.save()
         return Response({'data': serializer.data}, status=status.HTTP_201_CREATED)
     
@@ -98,4 +100,23 @@ def create_job(req):
 @api_view(['GET'])
 def sort_orders():
     queryset = Order.objects.all()
-    return Response({ 'data': sort_orders(OrderSerializers(queryset, many=True).data)})
+    orders = OrderSerializers(queryset, many=True).data
+    sorted_orders = sort_orders_list(orders)
+    return Response({'data': sorted_orders})
+
+@api_view(['GET'])
+def get_earned_money(req, id):
+    try:
+        job = Job.objects.get(id=id)
+    except Order.DoesNotExist:
+        return Response({'error': 'Job not found'}, status=status.HTTP_404_NOT_FOUND)
+    return Response({'earned_money': job.total_price})
+
+@api_view(['GET'])
+def get_pending_orders_count(id):
+    try:
+        job = Job.objects.get(id=id)
+    except Order.DoesNotExist:
+        return Response({'error': 'Job not found'}, status=status.HTTP_404_NOT_FOUND)
+    pending_orders_count = Order.objects.filter(jon=job,status='PD').count()
+    return Response({'pending_orders': pending_orders_count})
